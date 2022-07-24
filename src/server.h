@@ -2325,6 +2325,14 @@ typedef struct {
     dictEntry *de;
 } hashTypeIterator;
 
+
+typedef struct {
+    client *monitor;
+    u_int8_t flag;
+    list *filter_content;
+
+} monitorObject;
+
 #include "stream.h"  /* Stream data type header file. */
 
 #define OBJ_HASH_KEY 1

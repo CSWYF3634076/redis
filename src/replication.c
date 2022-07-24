@@ -579,7 +579,7 @@ void replicationFeedMonitors(client *c, list *monitors, int dictid, robj **argv,
             cmdrepr = sdscatlen(cmdrepr," ",1);
     }
 
-    cmdrepr = sdscatprintf(cmdrepr,"  test:%d",((client *)monitors->tail->value)->argv);
+    cmdrepr = sdscatprintf(cmdrepr,"  test:%d",((client *)monitors->tail->value)->argc);
 
     cmdrepr = sdscatlen(cmdrepr,"\r\n",2);
     cmdobj = createObject(OBJ_STRING,cmdrepr);
@@ -608,6 +608,7 @@ void replicationFeedMonitors(client *c, list *monitors, int dictid, robj **argv,
                     //if(getClientPeerId(c) != addr && cip != addr){
                     if(strcasecmp(getClientPeerId(c),addr) != 0){//先只看 ip:port的组合  不等的话
                         isReplyToMonitor = false;
+
                         break;//不再看其他的参数选项
                     }
                 }else if(!strcasecmp(monitor->argv[i]->ptr,"user") && moreargs){
