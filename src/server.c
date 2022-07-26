@@ -5992,7 +5992,47 @@ void monitorCommand(client *c) {
     if (c->flags & CLIENT_SLAVE) return;
 
     c->flags |= (CLIENT_SLAVE|CLIENT_MONITOR);
-    listAddNodeTail(server.monitors,c);
+    monitorObject *m = zmalloc(sizeof(*m));
+    m->monitor = c;
+    m->filter_content = listCreate();
+    if (c->argc > 1){
+        int i = 1; //下一个选项参数的索引
+        while(i < c->argc){
+            int moreargs = c->argc > i+1;//后续还有更多的参数吗？
+            monitorFilterContent *mfc = zmalloc(sizeof(*mfc));
+            if(!strcasecmp(c->argv[i]->ptr,"addr") && moreargs){
+                mfc->type = 1;
+                mfc->content =  c->argv[i+1]->ptr;
+            }else if(!strcasecmp(c->argv[i]->ptr,"user") && moreargs){
+                mfc->type = 2;
+                mfc->content = c->argv[i+1]->ptr;
+            }else if(!strcasecmp(c->argv[i]->ptr,"id") && moreargs){
+                mfc->type = 3;
+                mfc->content = c->argv[i+1]->ptr;
+            }else if(!strcasecmp(c->argv[i]->ptr,"command") && moreargs){
+                mfc->type = 4;
+                mfc->content = c->argv[i+1]->ptr;
+            }else if(!strcasecmp(c->argv[i]->ptr,"key") && moreargs){
+                mfc->type = 5;
+                mfc->content = c->argv[i+1]->ptr;
+
+            }else if(!strcasecmp(c->argv[i]->ptr,"pattern") && moreargs){
+                mfc->type = 6;
+                mfc->content = sdsnew(c->argv[i+1]->ptr);
+
+            }else{
+                zfree(mfc);
+                zfree(m);
+                addReplyError(c,"monitor parameter error");
+                break;
+                // 返回错误
+            }
+            listAddNodeTail(m->filter_content,mfc);
+            i+=2;
+        }
+
+    }
+    listAddNodeTail(server.monitors,m);
     addReply(c,shared.ok);
 }
 

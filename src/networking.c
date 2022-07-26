@@ -1510,6 +1510,26 @@ void unlinkClient(client *c) {
     if (c->flags & CLIENT_TRACKING) disableTracking(c);
 }
 
+listNode *listMonitorSearchKey(list *list, void *key)
+{
+    listIter iter;
+    listNode *node;
+
+    listRewind(list, &iter);
+    while((node = listNext(&iter)) != NULL) {
+        if (list->match) {
+            if (list->match(((monitorObject*)node->value)->monitor, key)) {
+                return node;
+            }
+        } else {
+            if (key == ((monitorObject*)node->value)->monitor) {
+                return node;
+            }
+        }
+    }
+    return NULL;
+}
+
 /* Clear the client state to resemble a newly connected client. */
 void clearClientConnectionState(client *c) {
     listNode *ln;
@@ -1518,7 +1538,8 @@ void clearClientConnectionState(client *c) {
      * distinguish between the two.
      */
     if (c->flags & CLIENT_MONITOR) {
-        ln = listSearchKey(server.monitors,c);
+        //ln = listSearchKey(server.monitors,c);
+        ln = listMonitorSearchKey(server.monitors,c);
         serverAssert(ln != NULL);
         listDelNode(server.monitors,ln);
 
@@ -1655,8 +1676,17 @@ void freeClient(client *c) {
             if (c->repldbfd != -1) close(c->repldbfd);
             if (c->replpreamble) sdsfree(c->replpreamble);
         }
-        list *l = (c->flags & CLIENT_MONITOR) ? server.monitors : server.slaves;
-        ln = listSearchKey(l,c);
+        //list *l = (c->flags & CLIENT_MONITOR) ? server.monitors : server.slaves;
+        list *l;
+        if(c->flags & CLIENT_MONITOR) {
+            l = server.monitors;
+            ln = listMonitorSearchKey(l,c);
+        }
+        else{
+            l = server.slaves;
+            ln = listSearchKey(l,c);
+        }
+        //ln = listSearchKey(l,c);
         serverAssert(ln != NULL);
         listDelNode(l,ln);
         /* We need to remember the time when we started to have zero

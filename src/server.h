@@ -391,6 +391,16 @@ extern int configOOMScoreAdjValuesDefaults[CONFIG_OOM_COUNT];
                                     buffer configuration. Just the first
                                     three: normal, slave, pubsub. */
 
+/*Monitor flags*/
+#define MONITOR_ADDR (1<<0)
+#define MONITOR_USER (1<<1)
+#define MONITOR_ID (1<<2)
+#define MONITOR_COMMAND (1<<3)
+#define MONITOR_KEY (1<<4)
+#define MONITOR_PATTERN (1<<5)
+
+
+
 /* Slave replication state. Used in server.repl_state for slaves to remember
  * what to do next. */
 typedef enum {
@@ -2328,10 +2338,13 @@ typedef struct {
 
 typedef struct {
     client *monitor;
-    u_int8_t flag;
     list *filter_content;
 
 } monitorObject;
+typedef struct {
+    int type;
+    sds content;
+} monitorFilterContent;
 
 #include "stream.h"  /* Stream data type header file. */
 
@@ -2548,6 +2561,7 @@ void initThreadedIO(void);
 client *lookupClientByID(uint64_t id);
 int authRequired(client *c);
 void putClientInPendingWriteQueue(client *c);
+listNode *listMonitorSearchKey(list *list, void *key);
 
 #ifdef __GNUC__
 void addReplyErrorFormatEx(client *c, int flags, const char *fmt, ...)
