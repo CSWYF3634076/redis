@@ -392,12 +392,12 @@ extern int configOOMScoreAdjValuesDefaults[CONFIG_OOM_COUNT];
                                     three: normal, slave, pubsub. */
 
 /*Monitor flags*/
-#define MONITOR_ADDR (1<<0)
-#define MONITOR_USER (1<<1)
-#define MONITOR_ID (1<<2)
-#define MONITOR_COMMAND (1<<3)
-#define MONITOR_KEY (1<<4)
-#define MONITOR_PATTERN (1<<5)
+#define MONITOR_ADDR 1
+#define MONITOR_USER 2
+#define MONITOR_ID 3
+#define MONITOR_COMMAND 4
+#define MONITOR_KEY 5
+#define MONITOR_PATTERN 6
 
 
 

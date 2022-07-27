@@ -6001,23 +6001,23 @@ void monitorCommand(client *c) {
             int moreargs = c->argc > i+1;//后续还有更多的参数吗？
             monitorFilterContent *mfc = zmalloc(sizeof(*mfc));
             if(!strcasecmp(c->argv[i]->ptr,"addr") && moreargs){
-                mfc->type = 1;
-                mfc->content =  c->argv[i+1]->ptr;
+                mfc->type = MONITOR_ADDR;
+                mfc->content =  sdsnew(c->argv[i+1]->ptr);
             }else if(!strcasecmp(c->argv[i]->ptr,"user") && moreargs){
-                mfc->type = 2;
-                mfc->content = c->argv[i+1]->ptr;
+                mfc->type = MONITOR_USER;
+                mfc->content = sdsnew(c->argv[i+1]->ptr);
             }else if(!strcasecmp(c->argv[i]->ptr,"id") && moreargs){
-                mfc->type = 3;
-                mfc->content = c->argv[i+1]->ptr;
+                mfc->type = MONITOR_ID;
+                mfc->content = sdsnew(c->argv[i+1]->ptr);
             }else if(!strcasecmp(c->argv[i]->ptr,"command") && moreargs){
-                mfc->type = 4;
-                mfc->content = c->argv[i+1]->ptr;
+                mfc->type = MONITOR_COMMAND;
+                mfc->content = sdsnew(c->argv[i+1]->ptr);
             }else if(!strcasecmp(c->argv[i]->ptr,"key") && moreargs){
-                mfc->type = 5;
-                mfc->content = c->argv[i+1]->ptr;
+                mfc->type = MONITOR_KEY;
+                mfc->content = sdsnew(c->argv[i+1]->ptr);
 
             }else if(!strcasecmp(c->argv[i]->ptr,"pattern") && moreargs){
-                mfc->type = 6;
+                mfc->type = MONITOR_PATTERN;
                 mfc->content = sdsnew(c->argv[i+1]->ptr);
 
             }else{

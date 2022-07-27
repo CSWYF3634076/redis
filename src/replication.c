@@ -588,9 +588,8 @@ void replicationFeedMonitors(client *c, list *monitors, int dictid, robj **argv,
     while((ln = listNext(&li))) {
         monitorObject *monitorObj = ln->value;
         client *monitor = monitorObj->monitor;
-        // 我的逻辑开始
-        addReply(monitor,cmdobj);
 
+        // 我的逻辑开始
         //如果过滤信息list不为空
         if(monitorObj->filter_content->head) {
             bool isReplyToMonitor = true;
@@ -599,7 +598,7 @@ void replicationFeedMonitors(client *c, list *monitors, int dictid, robj **argv,
             listRewind(monitorObj->filter_content, &lpi);
             while((lpn = listNext(&lpi))) {
                 monitorFilterContent *mfc = lpn->value;
-                if(mfc->type == 1){ //addr
+                if(mfc->type == MONITOR_ADDR){ //addr
                     char *addr = mfc->content;
                     char cip[NET_IP_STR_LEN];
                     anetFdToString(c->conn->fd?c->conn->fd:-1,cip,sizeof(cip),NULL,FD_TO_PEER_NAME);
@@ -609,17 +608,17 @@ void replicationFeedMonitors(client *c, list *monitors, int dictid, robj **argv,
                         isReplyToMonitor = false;
                         break;//不再看其他的参数选项
                     }
-                }else if(mfc->type == 2){ //user
+                }else if(mfc->type == MONITOR_USER){ //user
                     if(strcasecmp(c->user->name,mfc->content) != 0){
                         isReplyToMonitor = false;
                         break;
                     }
-                }else if(mfc->type == 3){ //id
-                    if(strcasecmp(c->id,mfc->content) != 0){
+                }else if(mfc->type == MONITOR_ID){ //id
+                    if(strcasecmp(sdscatprintf(sdsempty(),"%lld",c->id),mfc->content) != 0){
                         isReplyToMonitor = false;
                         break;
                     }
-                }else if(mfc->type == 4){ //command
+                }else if(mfc->type == MONITOR_COMMAND){ //command
                     // redis中有“Command group”的概念，我觉得可以用他实现command_category
                     char *command = mfc->content;
                     //命令不匹配且命令组也不匹配
@@ -628,10 +627,10 @@ void replicationFeedMonitors(client *c, list *monitors, int dictid, robj **argv,
                         isReplyToMonitor = false;
                         break;
                     }
-                }else if(mfc->type == 5){ //key
+                }else if(mfc->type == MONITOR_KEY){ //key
                     struct redisCommand *ccmd;
                     robj **cargv;
-                    int cargc, numkeys, j;
+                    int cargc, numkeys, k;
                     char *mkey_val;
                     keyReference *keyindex;
                     bool hitKey = false;
@@ -644,10 +643,10 @@ void replicationFeedMonitors(client *c, list *monitors, int dictid, robj **argv,
                     keyindex = result.keys;
                     mkey_val = mfc->content;
                     //查看所有key
-                    for(j = 0 ; j < numkeys ; j++ ){
-                        robj *thiskey = cargv[keyindex[j].pos];
+                    for(k = 0 ; k < numkeys ; k++ ){
+                        robj *thiskey = cargv[keyindex[k].pos];
                         //只要存在我们监测的key，退出循环
-                        if(thiskey->ptr == mkey_val){
+                        if(!strcasecmp(thiskey->ptr,mkey_val)){
                             hitKey = true;
                             break;
                         }
@@ -657,7 +656,7 @@ void replicationFeedMonitors(client *c, list *monitors, int dictid, robj **argv,
                         isReplyToMonitor = false;
                         break;
                     }
-                }else if(mfc->type == 6){ //pattern
+                }else if(mfc->type == MONITOR_PATTERN){ //pattern
                     //命中key，向monitor返回对象
                     char *pattern = mfc->content;//模式串
                     int plen = sdslen(pattern);//模式串长度

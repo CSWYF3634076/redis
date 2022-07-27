@@ -1681,6 +1681,9 @@ void freeClient(client *c) {
         if(c->flags & CLIENT_MONITOR) {
             l = server.monitors;
             ln = listMonitorSearchKey(l,c);
+            // 把monitorObject->filter_content这个list的空间释放掉
+            listEmpty(((monitorObject*)ln->value)->filter_content);
+
         }
         else{
             l = server.slaves;
