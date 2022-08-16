@@ -2387,6 +2387,25 @@ void makeThreadKillable(void) {
     pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
 }
 
+int monitorListMatch(void *val , void *target) {
+    if (target == ((monitorObject*)val)->monitor)
+        return 1;
+    return 0;
+}
+void freeMonitorFilterContent(void *val) {
+    listNode *ln;
+    listIter li;
+    listRewind(((monitorObject*)val)->filter_content,&li);
+    while((ln = listNext(&li))) {
+        sdsfree(((monitorFilterContent*)ln->value)->content);
+    }
+}
+void freeMonitorNode(void *val) {
+    if (((monitorObject*)val)->filter_content != NULL){
+        listEmpty(((monitorObject*)val)->filter_content);
+    }
+}
+
 void initServer(void) {
     int j;
 
@@ -2439,6 +2458,10 @@ void initServer(void) {
     server.reply_buffer_peak_reset_time = REPLY_BUFFER_DEFAULT_PEAK_RESET_TIME;
     server.reply_buffer_resizing_enabled = 1;
     resetReplicationBuffer();
+
+    /* Implement listSetMatchMethod and listSetFreeMethod for monitor */
+    listSetMatchMethod(server.monitors,monitorListMatch);
+    listSetFreeMethod(server.monitors,freeMonitorNode);
 
     if ((server.tls_port || server.tls_replication || server.tls_cluster)
                 && tlsConfigure(&server.tls_ctx_config) == C_ERR) {
@@ -5979,6 +6002,8 @@ void infoCommand(client *c) {
     return;
 }
 
+
+
 void monitorCommand(client *c) {
     if (c->flags & CLIENT_DENY_BLOCKING) {
         /**
@@ -5991,10 +6016,11 @@ void monitorCommand(client *c) {
     /* ignore MONITOR if already slave or in monitor mode */
     if (c->flags & CLIENT_SLAVE) return;
 
-    c->flags |= (CLIENT_SLAVE|CLIENT_MONITOR);
+
     monitorObject *m = zmalloc(sizeof(*m));
     m->monitor = c;
     m->filter_content = listCreate();
+    listSetFreeMethod(m->filter_content,freeMonitorFilterContent);
     if (c->argc > 1){
         int i = 1; //下一个选项参数的索引
         while(i < c->argc){
@@ -6022,16 +6048,19 @@ void monitorCommand(client *c) {
 
             }else{
                 zfree(mfc);
+                if (m->filter_content != NULL)
+                    listEmpty(m->filter_content);
                 zfree(m);
                 addReplyError(c,"monitor parameter error");
-                break;
-                // 返回错误
+                return;
             }
             listAddNodeTail(m->filter_content,mfc);
             i+=2;
         }
 
     }
+    c->flags |= (CLIENT_SLAVE|CLIENT_MONITOR);
+
     listAddNodeTail(server.monitors,m);
     addReply(c,shared.ok);
 }

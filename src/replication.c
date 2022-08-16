@@ -579,10 +579,9 @@ void replicationFeedMonitors(client *c, list *monitors, int dictid, robj **argv,
             cmdrepr = sdscatlen(cmdrepr," ",1);
     }
 
-    cmdrepr = sdscatprintf(cmdrepr,"  test:%d",((monitorObject *)monitors->tail->value)->monitor->argc);
-
     cmdrepr = sdscatlen(cmdrepr,"\r\n",2);
     cmdobj = createObject(OBJ_STRING,cmdrepr);
+
 
     listRewind(monitors,&li);
     while((ln = listNext(&li))) {
@@ -590,8 +589,9 @@ void replicationFeedMonitors(client *c, list *monitors, int dictid, robj **argv,
         client *monitor = monitorObj->monitor;
 
         // 我的逻辑开始
+
         //如果过滤信息list不为空
-        if(monitorObj->filter_content->head) {
+        if(monitorObj->filter_content->len) {
             bool isReplyToMonitor = true;
             listNode *lpn;
             listIter lpi;
@@ -609,12 +609,12 @@ void replicationFeedMonitors(client *c, list *monitors, int dictid, robj **argv,
                         break;//不再看其他的参数选项
                     }
                 }else if(mfc->type == MONITOR_USER){ //user
-                    if(strcasecmp(c->user->name,mfc->content) != 0){
+                    if(sdscmp(c->user->name,mfc->content) != 0){
                         isReplyToMonitor = false;
                         break;
                     }
                 }else if(mfc->type == MONITOR_ID){ //id
-                    if(strcasecmp(sdscatprintf(sdsempty(),"%lld",c->id),mfc->content) != 0){
+                    if(sdscmp(sdscatprintf(sdsempty(),"%ld",c->id),mfc->content) != 0){
                         isReplyToMonitor = false;
                         break;
                     }
@@ -674,95 +674,7 @@ void replicationFeedMonitors(client *c, list *monitors, int dictid, robj **argv,
             addReply(monitor,cmdobj);
         }
 
-        /*
-        if(monitor->argc == 1){//只有monitor一个参数
-            addReply(monitor,cmdobj);
-        }
-        else if(monitor->argc > 2){//有参数时，总数量最少3个，monitor ip 192.168.0.1
-            bool isReplyToMonitor = true;
-            int i = 1; //下一个选项参数的索引
-            while(i < monitor->argc){
-                int moreargs = monitor->argc > i+1;//后续还有更多的参数吗？
-                //我们要查找符合所有过滤条件的，只要出现一个条件不符合就直接跳到下一个monitor
-                if(!strcasecmp(monitor->argv[i]->ptr,"addr") && moreargs){
-                    char *addr = monitor->argv[i+1]->ptr;
-                    char cip[NET_IP_STR_LEN];
-                    anetFdToString(c->conn->fd?c->conn->fd:-1,cip,sizeof(cip),NULL,FD_TO_PEER_NAME);
-                    //              ip:port       和   ip 都匹配不上
-                    //if(getClientPeerId(c) != addr && cip != addr){
-                    if(strcasecmp(getClientPeerId(c),addr) != 0){//先只看 ip:port的组合  不等的话
-                        isReplyToMonitor = false;
 
-                        break;//不再看其他的参数选项
-                    }
-                }else if(!strcasecmp(monitor->argv[i]->ptr,"user") && moreargs){
-                    if(c->user->name != monitor->argv[i+1]->ptr){
-                        isReplyToMonitor = false;
-                        break;
-                    }
-                }else if(!strcasecmp(monitor->argv[i]->ptr,"id") && moreargs){
-                    if(c->id != monitor->argv[i+1]->ptr){
-                        isReplyToMonitor = false;
-                        break;
-                    }
-                }else if(!strcasecmp(monitor->argv[i]->ptr,"command") && moreargs){
-                    // redis中有“Command group”的概念，我觉得可以用他实现command_category
-                    char *command = monitor->argv[i+1]->ptr;
-                    //命令不匹配且命令组也不匹配
-                    //if(c->cmd->declared_name != command && COMMAND_GROUP_STR[c->cmd->group] != command){
-                    if(c->cmd->declared_name != command ){//先匹配命令
-                        isReplyToMonitor = false;
-                        break;
-                    }
-                }else if(!strcasecmp(monitor->argv[i]->ptr,"key") && moreargs){
-                    struct redisCommand *ccmd;
-                    robj **cargv;
-                    int cargc, numkeys, j;
-                    char *mkey_val;
-                    keyReference *keyindex;
-                    bool hitKey = false;
-                    ccmd = c->cmd;
-                    cargc = c->argc;
-                    cargv = c->argv;
-                    getKeysResult result = GETKEYS_RESULT_INIT; //result 存储所有key的索引
-                    //获取命令中所有的key 保存到result中
-                    numkeys = getKeysFromCommand(ccmd,cargv,cargc,&result);
-                    keyindex = result.keys;
-                    mkey_val = monitor->argv[i+1]->ptr;
-                    //查看所有key
-                    for(j = 0 ; j < numkeys ; j++ ){
-                        robj *thiskey = cargv[keyindex[j].pos];
-                        //只要存在我们监测的key，退出循环
-                        if(thiskey->ptr == mkey_val){
-                            hitKey = true;
-                            break;
-                        }
-                    }
-                    //所有的key都没有匹配上
-                    if(!hitKey){
-                        isReplyToMonitor = false;
-                        break;
-                    }
-                }else if(!strcasecmp(monitor->argv[i]->ptr,"pattern") && moreargs){
-                    //命中key，向monitor返回对象
-                    char *pattern = monitor->argv[i+1]->ptr;//模式串
-                    int plen = sdslen(pattern);//模式串长度
-                    bool allkeys = (pattern[0] == '*' && plen == 1);//模式串为“*”时无需调用模式匹配函数，节省开销
-
-                    if(!allkeys && !stringmatchlen(pattern,plen,cmdrepr,sdslen(cmdrepr),0)){
-                        isReplyToMonitor = false;
-                        break;
-                    }
-                }
-                i+=2;
-            }
-
-            if(isReplyToMonitor){
-                addReply(monitor,cmdobj);
-            }
-            addReply(monitor,cmdobj);
-        }
-        */
         // 我的逻辑结束
 
         //addReply(monitor,cmdobj);
