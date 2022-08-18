@@ -2388,17 +2388,10 @@ void makeThreadKillable(void) {
 }
 
 int monitorListMatch(void *val , void *target) {
-    if (target == ((monitorObject*)val)->monitor)
-        return 1;
-    return 0;
+    return target == ((monitorObject*)val)->monitor;
 }
 void freeMonitorFilterContent(void *val) {
-    listNode *ln;
-    listIter li;
-    listRewind(((monitorObject*)val)->filter_content,&li);
-    while((ln = listNext(&li))) {
-        sdsfree(((monitorFilterContent*)ln->value)->content);
-    }
+    sdsfree(((monitorFilterContent*)val)->content);
 }
 void freeMonitorNode(void *val) {
     if (((monitorObject*)val)->filter_content != NULL){
