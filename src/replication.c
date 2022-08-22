@@ -581,53 +581,44 @@ void replicationFeedMonitors(client *c, list *monitors, int dictid, robj **argv,
 
     cmdrepr = sdscatlen(cmdrepr,"\r\n",2);
     cmdobj = createObject(OBJ_STRING,cmdrepr);
-
-
     listRewind(monitors,&li);
-    while((ln = listNext(&li))) {
+    while ((ln = listNext(&li))) {
         monitorObject *monitorObj = ln->value;
         client *monitor = monitorObj->monitor;
-
-        // 我的逻辑开始
-
-        //如果过滤信息list不为空
-        if(monitorObj->filter_content->len) {
+        /* If the filter content list is not empty */
+        if (monitorObj->filter_content->len) {
             bool isReplyToMonitor = true;
             listNode *lpn;
             listIter lpi;
             listRewind(monitorObj->filter_content, &lpi);
-            while((lpn = listNext(&lpi))) {
+            while ((lpn = listNext(&lpi))) {
                 monitorFilterContent *mfc = lpn->value;
-                if(mfc->type == MONITOR_ADDR){ //addr
-                    char *addr = mfc->content;
+                if (mfc->type == MONITOR_ADDR) {
+                    sds addr = mfc->content;
                     char cip[NET_IP_STR_LEN];
                     anetFdToString(c->conn->fd?c->conn->fd:-1,cip,sizeof(cip),NULL,FD_TO_PEER_NAME);
-                    //              ip:port       和   ip 都匹配不上
-                    //if(getClientPeerId(c) != addr && cip != addr){
-                    if(strcasecmp(getClientPeerId(c),addr) != 0){//先只看 ip:port的组合  不等的话
+                    if (sdscmp(getClientPeerId(c),addr) != 0 && strcasecmp(cip,addr) != 0) {
                         isReplyToMonitor = false;
-                        break;//不再看其他的参数选项
+                        /* Do not try other parameter options again */
+                        break;
                     }
-                }else if(mfc->type == MONITOR_USER){ //user
-                    if(sdscmp(c->user->name,mfc->content) != 0){
+                } else if (mfc->type == MONITOR_USER){
+                    if (sdscmp(c->user->name,mfc->content) != 0) {
                         isReplyToMonitor = false;
                         break;
                     }
-                }else if(mfc->type == MONITOR_ID){ //id
-                    if(sdscmp(sdscatprintf(sdsempty(),"%ld",c->id),mfc->content) != 0){
+                } else if (mfc->type == MONITOR_ID){
+                    if (sdscmp(sdscatprintf(sdsempty(),"%ld",c->id),mfc->content) != 0) {
                         isReplyToMonitor = false;
                         break;
                     }
-                }else if(mfc->type == MONITOR_COMMAND){ //command
-                    // redis中有“Command group”的概念，我觉得可以用他实现command_category
+                } else if (mfc->type == MONITOR_COMMAND) {
                     char *command = mfc->content;
-                    //命令不匹配且命令组也不匹配
-                    //if(c->cmd->declared_name != command && COMMAND_GROUP_STR[c->cmd->group] != command){
-                    if(strcasecmp(c->cmd->declared_name,command) != 0){//先匹配命令
+                    if (strcasecmp(c->cmd->declared_name,command) != 0 ) {
                         isReplyToMonitor = false;
                         break;
                     }
-                }else if(mfc->type == MONITOR_KEY){ //key
+                } else if (mfc->type == MONITOR_KEY) {
                     struct redisCommand *ccmd;
                     robj **cargv;
                     int cargc, numkeys, k;
@@ -637,47 +628,40 @@ void replicationFeedMonitors(client *c, list *monitors, int dictid, robj **argv,
                     ccmd = c->cmd;
                     cargc = c->argc;
                     cargv = c->argv;
-                    getKeysResult result = GETKEYS_RESULT_INIT; //result 存储所有key的索引
-                    //获取命令中所有的key 保存到result中
+                    getKeysResult result = GETKEYS_RESULT_INIT;
                     numkeys = getKeysFromCommand(ccmd,cargv,cargc,&result);
                     keyindex = result.keys;
                     mkey_val = mfc->content;
-                    //查看所有key
-                    for(k = 0 ; k < numkeys ; k++ ){
+                    for (k = 0 ; k < numkeys ; k++ ) {
                         robj *thiskey = cargv[keyindex[k].pos];
-                        //只要存在我们监测的key，退出循环
-                        if(!strcasecmp(thiskey->ptr,mkey_val)){
+                        /* As long as there is the key we monitor, exit the loop */
+                        if (!strcasecmp(thiskey->ptr,mkey_val)) {
                             hitKey = true;
                             break;
                         }
                     }
-                    //所有的key都没有匹配上
-                    if(!hitKey){
+                    /* All keys are not matched */
+                    if (!hitKey) {
                         isReplyToMonitor = false;
                         break;
                     }
-                }else if(mfc->type == MONITOR_PATTERN){ //pattern
-                    //命中key，向monitor返回对象
-                    char *pattern = mfc->content;//模式串
-                    int plen = sdslen(pattern);//模式串长度
-                    bool allkeys = (pattern[0] == '*' && plen == 1);//模式串为“*”时无需调用模式匹配函数，节省开销
+                } else if (mfc->type == MONITOR_PATTERN){
+                    /*  pattern string */
+                    sds pattern = mfc->content;
+                    int plen = sdslen(pattern);
+                    bool allkeys = (pattern[0] == '*' && plen == 1);
                     if(!allkeys && !stringmatchlen(pattern,plen,cmdrepr,sdslen(cmdrepr),0)){
                         isReplyToMonitor = false;
                         break;
                     }
                 }
             }
-            if(isReplyToMonitor){
+            if (isReplyToMonitor) {
                 addReply(monitor,cmdobj);
             }
-        }else{
+        } else {
             addReply(monitor,cmdobj);
         }
-
-
-        // 我的逻辑结束
-
-        //addReply(monitor,cmdobj);
         updateClientMemUsage(c);
     }
     decrRefCount(cmdobj);

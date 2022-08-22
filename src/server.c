@@ -5996,7 +5996,9 @@ void infoCommand(client *c) {
 }
 
 
-
+/* monitorCommand can filter client objects according to specified condition
+ * The method is as follows:
+ * monitor [ADDR ip:port/ip] [USER username] [ID client-id] [COMMAND command_name] [KEY key] [MATCH pattern] */
 void monitorCommand(client *c) {
     if (c->flags & CLIENT_DENY_BLOCKING) {
         /**
@@ -6009,15 +6011,14 @@ void monitorCommand(client *c) {
     /* ignore MONITOR if already slave or in monitor mode */
     if (c->flags & CLIENT_SLAVE) return;
 
-
     monitorObject *m = zmalloc(sizeof(*m));
     m->monitor = c;
     m->filter_content = listCreate();
     listSetFreeMethod(m->filter_content,freeMonitorFilterContent);
     if (c->argc > 1){
-        int i = 1; //下一个选项参数的索引
+        int i = 1;
         while(i < c->argc){
-            int moreargs = c->argc > i+1;//后续还有更多的参数吗？
+            int moreargs = c->argc > i+1;
             monitorFilterContent *mfc = zmalloc(sizeof(*mfc));
             if(!strcasecmp(c->argv[i]->ptr,"addr") && moreargs){
                 mfc->type = MONITOR_ADDR;
